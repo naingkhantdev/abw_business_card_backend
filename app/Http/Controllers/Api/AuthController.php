@@ -57,7 +57,7 @@ class AuthController extends Controller
                     'otp' => (string) $otp,
                     'email' => $request->email,
                     'appName' => config('app.name', 'BusinessCard4U'),
-                    'iconUrl' => rtrim((string) config('app.url'), '/') . '/favicon.ico',
+                    'iconUrl' => rtrim((string) config('app.url'), '/') . '/ABW.png',
                 ],
                 function ($message) use ($request) {
                     $message

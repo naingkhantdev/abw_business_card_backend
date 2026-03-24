@@ -70,31 +70,13 @@
         }
 
         .brand-badge {
-            width: 68px;
-            height: 68px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.12);
-            text-align: center;
+            width: 168px;
+            text-align: left;
         }
 
         .brand-icon {
-            width: 68px;
-            height: 68px;
-            padding: 10px;
-            box-sizing: border-box;
-        }
-
-        .brand-fallback {
-            width: 68px;
-            height: 68px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.14);
-            color: #ffffff;
-            font-size: 26px;
-            font-weight: 700;
-            line-height: 68px;
-            text-align: center;
-            letter-spacing: 0.04em;
+            width: 168px;
+            height: auto;
         }
 
         .eyebrow {
@@ -318,13 +300,7 @@
                                         <table role="presentation" width="100%">
                                             <tr>
                                                 <td align="left">
-                                                    <table role="presentation" class="brand-badge">
-                                                        <tr>
-                                                            <td class="brand-icon" align="center" valign="middle">
-                                                                <img src="{{ $iconUrl }}" alt="{{ $appName }} icon">
-                                                            </td>
-                                                        </tr>
-                                                    </table>
+                                                    <img src="{{ $iconUrl }}" alt="{{ $appName }} logo" class="brand-icon">
                                                 </td>
                                             </tr>
                                             <tr>
