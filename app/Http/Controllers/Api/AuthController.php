@@ -51,8 +51,14 @@ class AuthController extends Controller
         );
 
         try {
-            Mail::mailer($otpMailer)->raw(
-                "Your BusinessCard4U verification code is: {$otp}",
+            Mail::mailer($otpMailer)->send(
+                'emails.otp',
+                [
+                    'otp' => (string) $otp,
+                    'email' => $request->email,
+                    'appName' => config('app.name', 'BusinessCard4U'),
+                    'iconUrl' => rtrim((string) config('app.url'), '/') . '/favicon.ico',
+                ],
                 function ($message) use ($request) {
                     $message
                         ->to($request->email)
