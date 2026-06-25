@@ -163,13 +163,12 @@ class AuthController extends Controller
         // Automatically create a default Business Card for the user
         BusinessCard::create([
             'user_id' => $user->id,
+            'created_by' => $user->id,
             'name' => $user->name,
             'position' => 'Member', // Default position
             'emails' => [$user->email], // Default email
             'card_type' => 'user_card', // Default is user_card (profile)
             'qr_code_data' => 'user-' . $user->id . '-' . Str::uuid(), // Auto-generate QR Code
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
 
         $token = $user->createToken('mobile')->plainTextToken;

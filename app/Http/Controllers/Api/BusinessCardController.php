@@ -19,7 +19,7 @@ class BusinessCardController extends Controller
         $currentUser = auth('sanctum')->user();
 
         if ($currentUser) {
-            $ownCards = BusinessCard::with(['company', 'user'])
+            $ownCards = BusinessCard::with(['company.socials', 'user'])
                 ->where('user_id', $currentUser->id)
                 ->latest()
                 ->get()
@@ -27,7 +27,7 @@ class BusinessCardController extends Controller
 
             $friendIds = $this->acceptedFriendUserIds($currentUser);
 
-            $friendCards = BusinessCard::with(['company', 'user'])
+            $friendCards = BusinessCard::with(['company.socials', 'user'])
                 ->where('card_type', 'user_card')
                 ->whereIn('user_id', $friendIds)
                 ->latest()
@@ -36,7 +36,7 @@ class BusinessCardController extends Controller
 
             $cards = $ownCards->concat($friendCards)->unique('id')->values();
         } else {
-            $cards = BusinessCard::with(['company', 'user'])->latest()->get();
+            $cards = BusinessCard::with(['company.socials', 'user'])->latest()->get();
         }
 
         return response()->json([
@@ -48,7 +48,7 @@ class BusinessCardController extends Controller
 
     public function show($id)
     {
-        $card = BusinessCard::with(['company', 'user'])->find($id);
+        $card = BusinessCard::with(['company.socials', 'user'])->find($id);
 
         if (!$card) {
             return response()->json([
@@ -71,9 +71,19 @@ class BusinessCardController extends Controller
 
     public function myCards(Request $request)
     {
-        $cards = BusinessCard::with(['company', 'user'])
-            ->where('user_id', $request->user()->id)
-            ->latest()
+        $query = BusinessCard::with(['company.socials', 'user'])
+            ->where('user_id', $request->user()->id);
+
+        if ($cardType = $request->input('card_type')) {
+            $query->where('card_type', $cardType);
+
+            // For saved_card, strictly require created_by == current user
+            if ($cardType === 'saved_card') {
+                $query->where('created_by', $request->user()->id);
+            }
+        }
+
+        $cards = $query->latest()
             ->get()
             ->map(fn (BusinessCard $card) => $this->attachFriendState($card, $request->user()));
 
@@ -98,7 +108,7 @@ class BusinessCardController extends Controller
             ], 200);
         }
 
-        $cards = BusinessCard::with(['company', 'user'])
+        $cards = BusinessCard::with(['company.socials', 'user'])
             ->where('card_type', $cardType)
             ->where('user_id', '!=', $request->user()->id)
             ->where(function ($q) use ($query) {
@@ -130,7 +140,7 @@ class BusinessCardController extends Controller
             'qr_code_data' => 'required|string',
         ]);
 
-        $card = BusinessCard::with(['company', 'user'])
+        $card = BusinessCard::with(['company.socials', 'user'])
             ->where('qr_code_data', $request->input('qr_code_data'))
             ->first();
 
@@ -183,6 +193,7 @@ class BusinessCardController extends Controller
 
         $card = BusinessCard::create([
             'user_id' => $request->user()->id,
+            'created_by' => $request->user()->id,
             'name' => $data['name'] ?? null,
             'company_id' => $data['company_id'] ?? null,
             'position' => $data['position'] ?? null,
@@ -246,6 +257,7 @@ class BusinessCardController extends Controller
             'card_type' => $data['card_type'] ?? $card->card_type,
             'qr_code_data' => $data['qr_code_data'] ?? $card->qr_code_data,
             'social_links' => $data['social_links'] ?? $card->social_links,
+            'updated_by' => $request->user()->id,
         ];
 
         if ($request->hasFile('profile_image')) {
@@ -278,6 +290,8 @@ class BusinessCardController extends Controller
             ], 404);
         }
 
+        $card->deleted_by = $request->user()->id;
+        $card->saveQuietly();
         $card->delete();
 
         return response()->json([
@@ -289,7 +303,7 @@ class BusinessCardController extends Controller
     public function addFriend(Request $request, $id)
     {
         $currentUser = $request->user();
-        $card = BusinessCard::with(['company', 'user'])->find($id);
+        $card = BusinessCard::with(['company.socials', 'user'])->find($id);
 
         if (!$card || $card->card_type !== 'user_card') {
             return response()->json([
@@ -352,7 +366,7 @@ class BusinessCardController extends Controller
         $requesterIds = $friendships->pluck('requester_user_id');
         $friendshipsByRequester = $friendships->keyBy('requester_user_id');
 
-        $requestCards = BusinessCard::with(['company', 'user'])
+        $requestCards = BusinessCard::with(['company.socials', 'user'])
             ->where('card_type', 'user_card')
             ->whereIn('user_id', $requesterIds)
             ->latest()
@@ -376,7 +390,7 @@ class BusinessCardController extends Controller
 
     public function acceptFriendRequest(Request $request, $id)
     {
-        $requesterCard = BusinessCard::with(['company', 'user'])->find($id);
+        $requesterCard = BusinessCard::with(['company.socials', 'user'])->find($id);
 
         if (!$requesterCard) {
             return response()->json([

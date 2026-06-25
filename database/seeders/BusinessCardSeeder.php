@@ -18,14 +18,28 @@ class BusinessCardSeeder extends Seeder
         // 1. Create a primary user (YOU)
         $me = User::firstOrCreate(
             ['email' => 'me@example.com'],
-            ['name' => 'My Account', 'password' => bcrypt('password')]
+            [
+                'name' => 'My Account',
+                'password' => bcrypt('password'),
+                'is_verified' => true,
+            ]
         );
+        if (!$me->is_verified) {
+            $me->forceFill(['is_verified' => true])->save();
+        }
 
         // 2. Create another user (A Friend)
         $friendUser = User::firstOrCreate(
             ['email' => 'friend@example.com'],
-            ['name' => 'John Doe', 'password' => bcrypt('password')]
+            [
+                'name' => 'John Doe',
+                'password' => bcrypt('password'),
+                'is_verified' => true,
+            ]
         );
+        if (!$friendUser->is_verified) {
+            $friendUser->forceFill(['is_verified' => true])->save();
+        }
 
         // 3. Create a Company for context
         $company = Company::create([
@@ -41,6 +55,7 @@ class BusinessCardSeeder extends Seeder
         // This is John's official card. He created it.
         $johnsCard = BusinessCard::create([
             'user_id' => $friendUser->id, // Owned by John
+            'created_by' => $friendUser->id,
             'company_id' => $company->id,
             'card_type' => 'user_card',   // It's a real user card
             'position' => 'Senior Developer',
@@ -59,6 +74,7 @@ class BusinessCardSeeder extends Seeder
         // You type her details manually into your account.
         BusinessCard::create([
             'user_id' => $me->id,        // Owned by YOU (in your list)
+            'created_by' => $me->id,
             'card_type' => 'saved_card', // Manual entry
             'position' => 'Marketing Manager',
             'phones' => ['+1-555-0200'],

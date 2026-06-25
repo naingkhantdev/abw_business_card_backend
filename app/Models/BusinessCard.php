@@ -12,6 +12,9 @@ class BusinessCard extends Model
 
     protected $fillable = [
         'user_id',
+        'created_by',
+        'updated_by',
+        'deleted_by',
         'company_id',
         'name',
         'position',
@@ -37,8 +40,50 @@ class BusinessCard extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updater()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function deleter()
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
+    }
+
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * Auto-stamp created_by / updated_by / deleted_by.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($card) {
+            if (auth()->check()) {
+                $card->created_by = $card->created_by ?? auth()->id();
+            }
+        });
+
+        static::updating(function ($card) {
+            if (auth()->check()) {
+                $card->updated_by = auth()->id();
+            }
+        });
+
+        static::deleting(function ($card) {
+            if (auth()->check() && $card->isForceDeleting() === false) {
+                $card->deleted_by = auth()->id();
+                $card->saveQuietly(); // save the deleted_by without triggering events again
+            }
+        });
     }
 }

@@ -22,6 +22,10 @@ class BusinessCardResource extends JsonResource
             
             'card_type'     => $this->card_type,
             'qr_code_data'  => $this->qr_code_data,
+
+            'created_by'    => $this->created_by,
+            'updated_by'    => $this->updated_by,
+            'deleted_by'    => $this->deleted_by,
             'friend_request_status' => $this->friend_request_status ?? 'none',
             'social_links'  => $this->social_links ?? [],
             

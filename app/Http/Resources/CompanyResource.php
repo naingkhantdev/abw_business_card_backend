@@ -22,7 +22,7 @@ class CompanyResource extends JsonResource
             'created_by' => $this->created_by,
             'is_deleted' => $this->deleted_at !== null,
             'socials' => CompanySocialResource::collection(
-                $this->whenLoaded('socials')
+                $this->relationLoaded('socials') ? $this->socials : []
             ),
         ];
     }
