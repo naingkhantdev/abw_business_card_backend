@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str as SupportStr;
 use Illuminate\Support\Str;
+use App\Services\FcmService;
 
 class BusinessCardController extends Controller
 {
@@ -19,6 +20,22 @@ class BusinessCardController extends Controller
         $currentUser = auth('sanctum')->user();
 
         if ($currentUser) {
+            // Auto-ensure user has a profile card (user_card)
+            $hasProfileCard = BusinessCard::where('user_id', $currentUser->id)
+                ->where('card_type', 'user_card')
+                ->exists();
+            if (!$hasProfileCard) {
+                BusinessCard::create([
+                    'user_id' => $currentUser->id,
+                    'created_by' => $currentUser->id,
+                    'name' => $currentUser->name,
+                    'position' => 'Member', // Default position
+                    'emails' => [$currentUser->email], // Default email
+                    'card_type' => 'user_card', // Default is user_card (profile)
+                    'qr_code_data' => 'user-' . $currentUser->id . '-' . Str::uuid(), // Auto-generate QR Code
+                ]);
+            }
+
             $ownCards = BusinessCard::with(['company.socials', 'user'])
                 ->where('user_id', $currentUser->id)
                 ->latest()
@@ -28,7 +45,11 @@ class BusinessCardController extends Controller
             $friendIds = $this->acceptedFriendUserIds($currentUser);
 
             $friendCards = BusinessCard::with(['company.socials', 'user'])
-                ->where('card_type', 'user_card')
+                ->where(function ($q) {
+                    $q->where('card_type', 'user_card')
+                      ->orWhereNull('card_type')
+                      ->orWhere('card_type', '');
+                })
                 ->whereIn('user_id', $friendIds)
                 ->latest()
                 ->get()
@@ -71,6 +92,25 @@ class BusinessCardController extends Controller
 
     public function myCards(Request $request)
     {
+        $currentUser = $request->user();
+        if ($currentUser) {
+            // Auto-ensure user has a profile card (user_card)
+            $hasProfileCard = BusinessCard::where('user_id', $currentUser->id)
+                ->where('card_type', 'user_card')
+                ->exists();
+            if (!$hasProfileCard) {
+                BusinessCard::create([
+                    'user_id' => $currentUser->id,
+                    'created_by' => $currentUser->id,
+                    'name' => $currentUser->name,
+                    'position' => 'Member', // Default position
+                    'emails' => [$currentUser->email], // Default email
+                    'card_type' => 'user_card', // Default is user_card (profile)
+                    'qr_code_data' => 'user-' . $currentUser->id . '-' . Str::uuid(), // Auto-generate QR Code
+                ]);
+            }
+        }
+
         $query = BusinessCard::with(['company.socials', 'user'])
             ->where('user_id', $request->user()->id);
 
@@ -109,14 +149,23 @@ class BusinessCardController extends Controller
         }
 
         $cards = BusinessCard::with(['company.socials', 'user'])
-            ->where('card_type', $cardType)
+            ->where(function ($q) use ($cardType) {
+                if ($cardType === 'user_card') {
+                    $q->where('card_type', 'user_card')
+                      ->orWhereNull('card_type')
+                      ->orWhere('card_type', '');
+                } else {
+                    $q->where('card_type', $cardType);
+                }
+            })
             ->where('user_id', '!=', $request->user()->id)
             ->where(function ($q) use ($query) {
                 if (!empty($query)) {
                     $q->where('name', 'like', "%{$query}%")
                         ->orWhere('position', 'like', "%{$query}%")
                         ->orWhereHas('user', function ($userQuery) use ($query) {
-                            $userQuery->where('name', 'like', "%{$query}%");
+                            $userQuery->where('name', 'like', "%{$query}%")
+                                      ->orWhere('email', 'like', "%{$query}%");
                         });
                 }
             })
@@ -305,7 +354,7 @@ class BusinessCardController extends Controller
         $currentUser = $request->user();
         $card = BusinessCard::with(['company.socials', 'user'])->find($id);
 
-        if (!$card || $card->card_type !== 'user_card') {
+        if (!$card || !in_array($card->card_type, ['user_card', null, ''])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Card not found',
@@ -335,11 +384,23 @@ class BusinessCardController extends Controller
                     'status' => 'accepted',
                     'accepted_at' => now(),
                 ]);
+                if ($card->user) {
+                    FcmService::sendToUser($card->user, 'Friend Request Accepted', "{$currentUser->name} accepted your friend request.", [
+                        'type' => 'friend_request_accepted',
+                        'sender_id' => (string) $currentUser->id,
+                    ]);
+                }
             } else {
                 $friendship->update([
                     'status' => 'pending',
                     'accepted_at' => null,
                 ]);
+                if ($card->user) {
+                    FcmService::sendToUser($card->user, 'New Friend Request', "{$currentUser->name} sent you a friend request.", [
+                        'type' => 'friend_request_received',
+                        'sender_id' => (string) $currentUser->id,
+                    ]);
+                }
             }
         } else {
             Friendship::create([
@@ -347,6 +408,12 @@ class BusinessCardController extends Controller
                 'receiver_user_id' => $card->user_id,
                 'status' => 'pending',
             ]);
+            if ($card->user) {
+                FcmService::sendToUser($card->user, 'New Friend Request', "{$currentUser->name} sent you a friend request.", [
+                    'type' => 'friend_request_received',
+                    'sender_id' => (string) $currentUser->id,
+                ]);
+            }
         }
 
         return response()->json([
@@ -367,7 +434,11 @@ class BusinessCardController extends Controller
         $friendshipsByRequester = $friendships->keyBy('requester_user_id');
 
         $requestCards = BusinessCard::with(['company.socials', 'user'])
-            ->where('card_type', 'user_card')
+            ->where(function ($q) {
+                $q->where('card_type', 'user_card')
+                  ->orWhereNull('card_type')
+                  ->orWhere('card_type', '');
+            })
             ->whereIn('user_id', $requesterIds)
             ->latest()
             ->get()
@@ -416,6 +487,13 @@ class BusinessCardController extends Controller
             'status' => 'accepted',
             'accepted_at' => now(),
         ]);
+
+        if ($requesterCard->user) {
+            FcmService::sendToUser($requesterCard->user, 'Friend Request Accepted', "{$request->user()->name} accepted your friend request.", [
+                'type' => 'friend_request_accepted',
+                'sender_id' => (string) $request->user()->id,
+            ]);
+        }
 
         return response()->json([
             'status' => 'success',
@@ -503,7 +581,15 @@ class BusinessCardController extends Controller
         }
 
         $card->friend_status = $friendship->status;
-        $card->friend_request_status = $friendship->status;
+        if ($friendship->status === 'pending') {
+            if ($friendship->requester_user_id === $viewer->id) {
+                $card->friend_request_status = 'pending_sent';
+            } else {
+                $card->friend_request_status = 'pending_received';
+            }
+        } else {
+            $card->friend_request_status = $friendship->status;
+        }
         $card->is_friend = $friendship->status === 'accepted';
 
         return $card;

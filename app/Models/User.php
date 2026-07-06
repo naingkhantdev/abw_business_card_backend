@@ -21,6 +21,7 @@ class User extends Authenticatable
         'is_verified',
         'deactivated_at',
         'reactivation_deadline_at',
+        'fcm_token',
     ];
 
 

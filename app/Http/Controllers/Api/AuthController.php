@@ -228,6 +228,10 @@ class AuthController extends Controller
 
         $user->tokens()->delete();
 
+        if ($request->filled('firebase_token')) {
+            $user->update(['fcm_token' => $request->firebase_token]);
+        }
+
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
