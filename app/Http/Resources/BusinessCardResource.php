@@ -16,7 +16,7 @@ class BusinessCardResource extends JsonResource
             'position'      => $this->position,
             'phones'        => $this->phones ?? [],
             'emails'        => $this->emails ?? [],
-            'addresses'     => $this->addresses ?? [],
+            'addresses'     => $this->structuredAddresses(),
             'bio'           => $this->bio,
             'profile_image' => $this->profile_image,
             
@@ -50,5 +50,34 @@ class BusinessCardResource extends JsonResource
             'created_at'    => $this->created_at?->toDateTimeString(),
             'updated_at'    => $this->updated_at?->toDateTimeString(),
         ];
+    }
+
+    /**
+     * Always emit addresses as structured objects; legacy free-text entries
+     * (pre-migration data) are folded into `street`.
+     */
+    private function structuredAddresses(): array
+    {
+        return collect($this->addresses ?? [])
+            ->map(function ($address) {
+                if (is_string($address)) {
+                    $address = ['street' => $address];
+                }
+
+                if (!is_array($address)) {
+                    return null;
+                }
+
+                return [
+                    'street'      => $address['street'] ?? null,
+                    'city'        => $address['city'] ?? null,
+                    'state'       => $address['state'] ?? null,
+                    'postal_code' => $address['postal_code'] ?? null,
+                    'country'     => $address['country'] ?? null,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 }

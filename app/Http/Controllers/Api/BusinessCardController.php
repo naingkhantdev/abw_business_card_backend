@@ -139,8 +139,12 @@ class BusinessCardController extends Controller
         $query = $request->input('query');
         $companyId = $request->input('company_id');
         $cardType = $request->input('card_type', 'user_card');
+        $city = $request->input('city');
+        $state = $request->input('state');
+        $country = $request->input('country');
+        $hasAddressFilter = filled($city) || filled($state) || filled($country);
 
-        if (empty($query) && empty($companyId)) {
+        if (empty($query) && empty($companyId) && !$hasAddressFilter) {
             return response()->json([
                 'status' => 'success',
                 'message' => 'No search parameters provided',
@@ -173,14 +177,47 @@ class BusinessCardController extends Controller
                 $q->where('company_id', $companyId);
             })
             ->latest()
-            ->get()
-            ->map(fn (BusinessCard $card) => $this->attachFriendState($card, $request->user()));
+            ->get();
+
+        if ($hasAddressFilter) {
+            $cards = $cards
+                ->filter(fn (BusinessCard $card) => $this->matchesAddressFilter($card, $city, $state, $country))
+                ->values();
+        }
+
+        $cards = $cards->map(fn (BusinessCard $card) => $this->attachFriendState($card, $request->user()));
 
         return response()->json([
             'status' => 'success',
             'message' => 'Search results',
             'data' => BusinessCardResource::collection($cards),
         ], 200);
+    }
+
+    /**
+     * Case-insensitive partial match against the structured addresses JSON.
+     * Filtered in PHP because JSON-path SQL differs between MySQL (prod) and
+     * sqlite (tests); revisit with a generated column or address table if the
+     * cards dataset grows large.
+     */
+    private function matchesAddressFilter(BusinessCard $card, ?string $city, ?string $state, ?string $country): bool
+    {
+        $matches = function (?string $needle, $value): bool {
+            if (blank($needle)) {
+                return true;
+            }
+            return is_string($value) && str_contains(mb_strtolower($value), mb_strtolower(trim($needle)));
+        };
+
+        return collect($card->addresses ?? [])->contains(function ($address) use ($matches, $city, $state, $country) {
+            if (!is_array($address)) {
+                return false;
+            }
+
+            return $matches($city, $address['city'] ?? null)
+                && $matches($state, $address['state'] ?? null)
+                && $matches($country, $address['country'] ?? null);
+        });
     }
 
     public function scanQr(Request $request)
@@ -217,8 +254,7 @@ class BusinessCardController extends Controller
             'phones.*' => 'string|min:6',
             'emails' => 'nullable|array',
             'emails.*' => 'email',
-            'addresses' => 'nullable|array',
-            'addresses.*' => 'string|max:255',
+            ...$this->addressRules(),
             'bio' => 'nullable|string',
             'profile_image' => 'nullable',
             'card_type' => 'nullable|string|in:user_card,saved_card',
@@ -286,8 +322,7 @@ class BusinessCardController extends Controller
             'phones.*' => 'string|min:6',
             'emails' => 'nullable|array',
             'emails.*' => 'email',
-            'addresses' => 'nullable|array',
-            'addresses.*' => 'string|max:255',
+            ...$this->addressRules(),
             'bio' => 'nullable|string',
             'profile_image' => 'nullable',
             'card_type' => 'nullable|string',
@@ -563,6 +598,24 @@ class BusinessCardController extends Controller
             'status' => 'success',
             'message' => 'Friend removed successfully',
         ], 200);
+    }
+
+    /**
+     * Addresses are structured per-entry so location is exact across countries:
+     * city and country are required; state and postal_code stay optional
+     * because not every country uses them.
+     */
+    private function addressRules(): array
+    {
+        return [
+            'addresses' => 'nullable|array',
+            'addresses.*' => 'array',
+            'addresses.*.street' => 'nullable|string|max:255',
+            'addresses.*.city' => 'required|string|max:120',
+            'addresses.*.state' => 'nullable|string|max:120',
+            'addresses.*.postal_code' => 'nullable|string|max:32',
+            'addresses.*.country' => 'required|string|max:120',
+        ];
     }
 
     private function attachFriendState(BusinessCard $card, ?User $viewer): BusinessCard
