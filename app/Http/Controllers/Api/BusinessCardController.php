@@ -330,15 +330,26 @@ class BusinessCardController extends Controller
             'social_links' => 'nullable|array',
         ]);
 
+        // A multipart client cannot omit a field: Dio serializes a null value as
+        // an empty string, so every optional key arrives as ''. Treat blank as
+        // "not supplied" for card_type, otherwise editing a card silently wipes
+        // its type and it drops out of both list tabs. company_id is nulled
+        // instead, since clearing the company is a legitimate edit and '' would
+        // fail to insert into an integer column.
+        $cardTypeSupplied = filled($data['card_type'] ?? null);
+        $companyIdSupplied = array_key_exists('company_id', $data);
+
         $updateData = [
             'name' => $data['name'] ?? $card->name,
-            'company_id' => array_key_exists('company_id', $data) ? $data['company_id'] : $card->company_id,
+            'company_id' => $companyIdSupplied
+                ? (filled($data['company_id']) ? $data['company_id'] : null)
+                : $card->company_id,
             'position' => $data['position'] ?? $card->position,
             'phones' => $data['phones'] ?? $card->phones,
             'emails' => $data['emails'] ?? $card->emails,
             'addresses' => $data['addresses'] ?? $card->addresses,
             'bio' => $data['bio'] ?? $card->bio,
-            'card_type' => $data['card_type'] ?? $card->card_type,
+            'card_type' => $cardTypeSupplied ? $data['card_type'] : $card->card_type,
             'qr_code_data' => $data['qr_code_data'] ?? $card->qr_code_data,
             'social_links' => $data['social_links'] ?? $card->social_links,
             'updated_by' => $request->user()->id,

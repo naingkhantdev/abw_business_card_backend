@@ -1,0 +1,1164 @@
+{
+  "info": {
+    "name": "BusinessCard4U API",
+    "description": "BusinessCard4U API - Laravel 12 + Sanctum.\n\nSETUP\n1. Start the API so your phone/other devices can reach it:\n     cd business_card\n     php artisan serve --host=0.0.0.0 --port=8001\n2. Set the {{base_url}} collection variable to your PC's current LAN IP.\n   It is DHCP, so re-check with ipconfig after a reconnect or reboot.\n\nHAPPY PATH ORDER\n  Send OTP -> Verify OTP -> Complete Register   (or just Login)\n  Create Company -> Create Business Card -> Update / Search / Scan QR\n\nAUTO-CAPTURED VARIABLES\n  token             <- Login / Complete Register / Refresh Token\n  otp               <- Send OTP (only when APP_ENV=local)\n  company_id        <- Create Company\n  business_card_id  <- Create Business Card\n  qr_code_data      <- Create Business Card (used by Scan QR)\n  friend_card_id    <- Search Business Cards (first result)\n\nNOTES\n- Update Business Card is POST + _method=PUT on purpose. PHP does not populate\n  the request body or $_FILES for a multipart PUT, so a real PUT updates nothing.\n- Addresses are structured: city and country are required per entry.\n- Logging in deletes every existing token for that user, so only one device can\n  be signed in at a time.\n- forgot-password / reset-password / change-password / refresh-token work on the\n  API but are not wired to any screen in the Flutter app yet.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://192.168.99.200:8001/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": "testuser@example.com"
+    },
+    {
+      "key": "password",
+      "value": "password123"
+    },
+    {
+      "key": "otp",
+      "value": ""
+    },
+    {
+      "key": "reset_token",
+      "value": ""
+    },
+    {
+      "key": "company_id",
+      "value": ""
+    },
+    {
+      "key": "business_card_id",
+      "value": ""
+    },
+    {
+      "key": "friend_card_id",
+      "value": ""
+    },
+    {
+      "key": "qr_code_data",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth - Public",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/send-otp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "send-otp"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.otp) {",
+                  "        pm.collectionVariables.set('otp', json.otp);",
+                  "        console.log('OTP captured (local env only):', json.otp);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/verify-otp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "verify-otp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Complete Register",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"name\": \"Test User\",\n  \"password\": \"{{password}}\",\n  \"password_confirmation\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/complete-register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "complete-register"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('token', json.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"firebase_token\": \"test-fcm-token-from-postman\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Sends firebase_token exactly like the Flutter client does; the API stores it on the user for push notifications. Logging in deletes all previous tokens, so any other signed-in device is kicked out."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('token', json.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "forgot-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirmation\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reset-password"
+              ]
+            },
+            "description": "reset_token comes from the email link sent by Forgot Password (myapp://reset-password?token=...&email=...)."
+          }
+        },
+        {
+          "name": "List Business Cards (public)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Show Business Card (public)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards/{{business_card_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "{{business_card_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Protected",
+      "item": [
+        {
+          "name": "Me",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_password\": \"newPassword123\",\n  \"new_password_confirmation\": \"newPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "change-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/refresh-token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "refresh-token"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('token', json.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivate Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/deactivate-account",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "deactivate-account"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Companies",
+      "item": [
+        {
+          "name": "List Companies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/companies",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "companies"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Show Company",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/companies/{{company_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "companies",
+                "{{company_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corp\",\n  \"industry\": \"Technology\",\n  \"business_type\": \"Private\",\n  \"description\": \"A sample company\",\n  \"address\": \"123 Main St\",\n  \"website\": \"https://acme.example.com\",\n  \"phone\": \"+10000000000\",\n  \"email\": \"contact@acme.example.com\",\n  \"socials\": [\n    { \"platform\": \"facebook\", \"url\": \"https://facebook.com/acme\" },\n    { \"platform\": \"linkedin\", \"url\": \"https://linkedin.com/company/acme\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/companies",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "companies"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.data && json.data.id) {",
+                  "        pm.collectionVariables.set('company_id', json.data.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Company",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corp Updated\",\n  \"description\": \"Updated description\",\n  \"socials\": [\n    { \"platform\": \"twitter\", \"url\": \"https://twitter.com/acme\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/companies/{{company_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "companies",
+                "{{company_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Company",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/companies/{{company_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "companies",
+                "{{company_id}}"
+              ]
+            },
+            "description": "Fails with 409 if the company already has business cards attached."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Business Cards",
+      "item": [
+        {
+          "name": "My Business Cards",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/my-business-cards",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "my-business-cards"
+              ],
+              "query": [
+                {
+                  "key": "card_type",
+                  "value": "saved_card",
+                  "description": "Optional. With saved_card the API also requires created_by == you.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Auto-creates your default user_card if you do not have one yet, then returns your cards."
+          }
+        },
+        {
+          "name": "Search Business Cards",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards/search?query=John&card_type=user_card",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "John",
+                  "description": "Matches card name, position, or the owner's name/email."
+                },
+                {
+                  "key": "card_type",
+                  "value": "user_card",
+                  "description": "Defaults to user_card server-side."
+                },
+                {
+                  "key": "company_id",
+                  "value": "",
+                  "description": "Filter to one company.",
+                  "disabled": true
+                },
+                {
+                  "key": "city",
+                  "value": "",
+                  "description": "Partial, case-insensitive match on the address city.",
+                  "disabled": true
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "description": "Partial, case-insensitive.",
+                  "disabled": true
+                },
+                {
+                  "key": "country",
+                  "value": "",
+                  "description": "Partial, case-insensitive.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "With no parameters at all the API returns an empty data array rather than every card. Your own cards are always excluded from results."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.data && json.data.length > 0) {",
+                  "        pm.collectionVariables.set('friend_card_id', json.data[0].id);",
+                  "        console.log('friend_card_id set to', json.data[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Friend Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards/friend-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "friend-requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Scan QR",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qr_code_data\": \"{{qr_code_data}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/business-cards/scan-qr",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "scan-qr"
+              ]
+            },
+            "description": "Uses {{qr_code_data}}, captured automatically by Create Business Card.\n\nNote: the API only generates qr_code_data for card_type=user_card. If you create a saved_card the field comes back null and nothing is captured - set card_type=user_card on the Create request first, or paste your own profile card's QR string."
+          }
+        },
+        {
+          "name": "Create Business Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Jane Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "company_id",
+                  "value": "{{company_id}}",
+                  "type": "text",
+                  "description": "Optional. Must be an existing company id."
+                },
+                {
+                  "key": "position",
+                  "value": "Sales Manager",
+                  "type": "text"
+                },
+                {
+                  "key": "phones[]",
+                  "value": "+10000000001",
+                  "type": "text",
+                  "description": "Minimum 6 characters each."
+                },
+                {
+                  "key": "emails[]",
+                  "value": "jane@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "addresses[0][street]",
+                  "value": "456 Side St",
+                  "type": "text"
+                },
+                {
+                  "key": "addresses[0][city]",
+                  "value": "Yangon",
+                  "type": "text",
+                  "description": "REQUIRED for every address entry."
+                },
+                {
+                  "key": "addresses[0][state]",
+                  "value": "Yangon Region",
+                  "type": "text",
+                  "description": "Optional."
+                },
+                {
+                  "key": "addresses[0][postal_code]",
+                  "value": "11201",
+                  "type": "text",
+                  "description": "Optional."
+                },
+                {
+                  "key": "addresses[0][country]",
+                  "value": "Myanmar",
+                  "type": "text",
+                  "description": "REQUIRED for every address entry."
+                },
+                {
+                  "key": "bio",
+                  "value": "Short bio text",
+                  "type": "text"
+                },
+                {
+                  "key": "card_type",
+                  "value": "saved_card",
+                  "type": "text",
+                  "description": "user_card or saved_card."
+                },
+                {
+                  "key": "profile_image",
+                  "value": "",
+                  "type": "file",
+                  "description": "Optional image upload.",
+                  "disabled": true
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/business-cards",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards"
+              ]
+            },
+            "description": "Addresses are structured objects, not free text. Each entry REQUIRES city and country; street, state and postal_code are optional. Flat \"addresses[]=some string\" is rejected by validation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.data && json.data.id) {",
+                  "        pm.collectionVariables.set('business_card_id', json.data.id);",
+                  "    }",
+                  "    if (json.data && json.data.qr_code_data) {",
+                  "        pm.collectionVariables.set('qr_code_data', json.data.qr_code_data);",
+                  "    }",
+                  "}",
+                  "pm.test('Card created (201)', function () {",
+                  "    pm.expect(pm.response.code).to.eql(201);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Business Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "_method",
+                  "value": "PUT",
+                  "type": "text",
+                  "description": "REQUIRED. PHP does not populate the body or $_FILES on a multipart PUT, so the client sends a real POST and Laravel routes it to Route::put."
+                },
+                {
+                  "key": "name",
+                  "value": "Jane Doe Updated",
+                  "type": "text"
+                },
+                {
+                  "key": "position",
+                  "value": "Senior Sales Manager",
+                  "type": "text"
+                },
+                {
+                  "key": "card_type",
+                  "value": "saved_card",
+                  "type": "text",
+                  "description": "ALWAYS send the existing value. Omitting it used to blank the column and make the card vanish from both list tabs."
+                },
+                {
+                  "key": "company_id",
+                  "value": "",
+                  "type": "text",
+                  "description": "Send empty to clear the company, or a valid id to set it.",
+                  "disabled": true
+                },
+                {
+                  "key": "addresses[0][city]",
+                  "value": "Yangon",
+                  "type": "text",
+                  "description": "If you send any address, city and country are required.",
+                  "disabled": true
+                },
+                {
+                  "key": "addresses[0][country]",
+                  "value": "Myanmar",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "profile_image",
+                  "value": "",
+                  "type": "file",
+                  "description": "Optional replacement image.",
+                  "disabled": true
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/business-cards/{{business_card_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "{{business_card_id}}"
+              ]
+            },
+            "description": "Sent as POST with _method=PUT, matching the Flutter client. A real PUT with multipart arrives at PHP with an empty body, so it would silently update nothing.\n\nAlways include card_type with the card's current value."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Update succeeded (200)', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('card_type was preserved, not blanked', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.card_type).to.be.oneOf(['user_card', 'saved_card']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Business Card",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards/{{business_card_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "{{business_card_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Friend",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards/{{friend_card_id}}/add-friend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "{{friend_card_id}}",
+                "add-friend"
+              ]
+            },
+            "description": "friend_card_id should be the id of another user's user_card (not your own)."
+          }
+        },
+        {
+          "name": "Accept Friend Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards/{{friend_card_id}}/accept-friend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "{{friend_card_id}}",
+                "accept-friend"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject Friend Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards/{{friend_card_id}}/reject-friend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "{{friend_card_id}}",
+                "reject-friend"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Friend (Unfriend)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/business-cards/{{friend_card_id}}/unfriend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-cards",
+                "{{friend_card_id}}",
+                "unfriend"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Runs after every request in this collection.",
+          "pm.test('No server error (5xx)', function () {",
+          "    pm.expect(pm.response.code).to.be.below(500);",
+          "});",
+          "",
+          "pm.test('Response is JSON, not an HTML error page', function () {",
+          "    pm.expect(pm.response.headers.get('Content-Type') || '').to.include('json');",
+          "});",
+          "",
+          "// APP_DEBUG=true makes Laravel return SQL and stack traces in the body.",
+          "// Fail loudly here so those never go unnoticed.",
+          "pm.test('No debug/SQL leak in response body', function () {",
+          "    const body = pm.response.text();",
+          "    pm.expect(body).to.not.include('SQLSTATE');",
+          "    pm.expect(body).to.not.include('Stack trace');",
+          "});"
+        ]
+      }
+    }
+  ]
+}

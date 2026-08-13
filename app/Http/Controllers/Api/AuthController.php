@@ -194,9 +194,18 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        // Reported separately so the app can tell the user which field to fix.
+        // This does reveal whether an email is registered; acceptable here
+        // because sign-up already rejects duplicate emails with the same hint.
+        if (!$user) {
             return response()->json([
-                'message' => 'Invalid credentials'
+                'message' => 'We could not find an account with that email.'
+            ], 401);
+        }
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'The password you entered is incorrect.'
             ], 401);
         }
 

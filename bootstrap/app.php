@@ -13,9 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->use([
-            \Illuminate\Http\Middleware\HandleCors::class, // ← add this
-        ]);
+        // Do NOT call $middleware->use([...]) here. use() REPLACES the whole
+        // global stack rather than appending to it, which previously dropped
+        // ConvertEmptyStringsToNull and TrimStrings and let blank multipart
+        // fields overwrite real column values. HandleCors is already part of
+        // Laravel's default global stack, so no registration is needed.
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
