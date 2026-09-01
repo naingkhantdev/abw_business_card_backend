@@ -257,17 +257,16 @@ class BusinessCardController extends Controller
             ...$this->addressRules(),
             'bio' => 'nullable|string',
             'profile_image' => 'nullable',
+            'front_image' => $this->imageFieldRules($request, 'front_image'),
+            'back_image' => $this->imageFieldRules($request, 'back_image'),
             'card_type' => 'nullable|string|in:user_card,saved_card',
             'qr_code_data' => 'nullable|string',
             'social_links' => 'nullable|array',
         ]);
 
-        $imagePath = null;
-        if ($request->hasFile('profile_image')) {
-            $imagePath = $request->file('profile_image')->store('profile_images', 'public');
-        } elseif ($request->input('profile_image') && is_string($request->input('profile_image'))) {
-            $imagePath = $this->normalizeProfileImagePath($request->input('profile_image'));
-        }
+        $imagePath = $this->resolveImagePath($request, 'profile_image', 'profile_images');
+        $frontImagePath = $this->resolveImagePath($request, 'front_image', 'card_images');
+        $backImagePath = $this->resolveImagePath($request, 'back_image', 'card_images');
 
         $cardType = $data['card_type'] ?? 'user_card';
         $qrCodeData = $data['qr_code_data'] ?? null;
@@ -290,6 +289,8 @@ class BusinessCardController extends Controller
             'qr_code_data' => $qrCodeData,
             'social_links' => $data['social_links'] ?? [],
             'profile_image' => $imagePath,
+            'front_image' => $frontImagePath,
+            'back_image' => $backImagePath,
         ]);
 
         return response()->json([
@@ -325,6 +326,8 @@ class BusinessCardController extends Controller
             ...$this->addressRules(),
             'bio' => 'nullable|string',
             'profile_image' => 'nullable',
+            'front_image' => $this->imageFieldRules($request, 'front_image'),
+            'back_image' => $this->imageFieldRules($request, 'back_image'),
             'card_type' => 'nullable|string',
             'qr_code_data' => 'nullable|string',
             'social_links' => 'nullable|array',
@@ -355,10 +358,17 @@ class BusinessCardController extends Controller
             'updated_by' => $request->user()->id,
         ];
 
-        if ($request->hasFile('profile_image')) {
-            $updateData['profile_image'] = $request->file('profile_image')->store('profile_images', 'public');
-        } elseif ($request->input('profile_image') && is_string($request->input('profile_image'))) {
-            $updateData['profile_image'] = $this->normalizeProfileImagePath($request->input('profile_image'));
+        $imageFields = [
+            'profile_image' => 'profile_images',
+            'front_image' => 'card_images',
+            'back_image' => 'card_images',
+        ];
+
+        foreach ($imageFields as $field => $directory) {
+            $path = $this->resolveImagePath($request, $field, $directory);
+            if ($path !== null) {
+                $updateData[$field] = $path;
+            }
         }
 
         $card->update($updateData);
@@ -688,6 +698,36 @@ class BusinessCardController extends Controller
                     ->where('receiver_user_id', $firstUserId);
             })
             ->first();
+    }
+
+    /**
+     * Validation rules for an image field that may arrive either as an upload
+     * or as the already-stored path the client echoes back on edit.
+     */
+    private function imageFieldRules(Request $request, string $field): array
+    {
+        return $request->hasFile($field)
+            ? ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120']
+            : ['nullable', 'string'];
+    }
+
+    /**
+     * Stores an uploaded image and returns its path, or normalises the path the
+     * client sent back. Returns null when the field was not supplied at all, so
+     * callers can leave an existing value untouched.
+     */
+    private function resolveImagePath(Request $request, string $field, string $directory): ?string
+    {
+        if ($request->hasFile($field)) {
+            return $request->file($field)->store($directory, 'public');
+        }
+
+        $value = $request->input($field);
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        return $this->normalizeProfileImagePath($value);
     }
 
     private function normalizeProfileImagePath(string $value): string

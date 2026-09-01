@@ -23,6 +23,8 @@ class BusinessCard extends Model
         'addresses',
         'bio',
         'profile_image',
+        'front_image',
+        'back_image',
         'card_type',
         'qr_code_data',
         'social_links',

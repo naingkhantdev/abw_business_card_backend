@@ -19,6 +19,8 @@ class BusinessCardResource extends JsonResource
             'addresses'     => $this->structuredAddresses(),
             'bio'           => $this->bio,
             'profile_image' => $this->profile_image,
+            'front_image'   => $this->front_image,
+            'back_image'    => $this->back_image,
             
             'card_type'     => $this->card_type,
             'qr_code_data'  => $this->qr_code_data,
